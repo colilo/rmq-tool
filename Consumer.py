@@ -47,6 +47,8 @@ class Consumer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
         if self.id == method.routing_key:
             latency = nano - msgTime
 
+        print("latency %d" % latency)
+
         self.stats.handleRecv(latency)
         self.delay(now)
 

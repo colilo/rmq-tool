@@ -36,10 +36,12 @@ class Stats(object):
         self.latencyLimitation = latencyLimitation # nanoseconds
         self.sendCountTotal = 0
         self.recvCountTotal = 0
+        self.cumulativeLatencyTotal = 0
+        self.latencyCountTotal = 0
+        self.acceptableLatencyCountTotal = 0
         self.elapsedTotal = 0
         self.startTime = time.time()
         self.reset(self.startTime)
-
 
     def reset(self, lastStatsTime):
         self.lastStatsTime             = lastStatsTime
@@ -60,7 +62,7 @@ class Stats(object):
         now = time.time()
         self.elapsedInterval = now - self.lastStatsTime
 
-        print("now: %f, lastStatsTime: %f, elapsedInterval: %f" % (now, self.lastStatsTime, self.elapsedInterval))
+        # print("now: %f, lastStatsTime: %f, elapsedInterval: %f" % (now, self.lastStatsTime, self.elapsedInterval))
 
         if self.elapsedInterval >= self.interval:
             self.elapsedTotal += self.elapsedInterval

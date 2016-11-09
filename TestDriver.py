@@ -284,7 +284,7 @@ def main():
     parser.add_argument("-C", metavar='producerMsgCount', default=0, type=int, dest='producerMsgCount')
     parser.add_argument("-D", metavar='consumerMsgCount', default=0, type=int, dest='consumerMsgCount')
     parser.add_argument("-f", metavar='flags', default=[], type=list, dest='flags')
-    parser.add_argument("-M", metavar='frameMax', default=0, type=int, dest='frameMax')
+    parser.add_argument("-M", metavar='frameMax', default=None, type=int, dest='frameMax')
     parser.add_argument("-b", metavar='heartbeat', default=0, type=int, dest='heartbeat')
 
     parser.add_argument("-p", action='store_true', default=False, dest='predeclared')
@@ -298,7 +298,7 @@ def main():
 
     driver = TestDriver(args)
 
-    driver.run()
+    driver.run(True)
 
 if __name__ == "__main__":
     main()
