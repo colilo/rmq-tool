@@ -79,8 +79,3 @@ class Producer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
             self.stats.handleSend()
             now = time.time()
 
-
-
-        print("msgCount: %d, startTime: %f, timeLimit: %f, startTime + timeLimit: %f, now: %f" % (self.msgCount, startTime, self.timeLimit, startTime + self.timeLimit, now))
-        self.stats.handleSend()
-

@@ -51,6 +51,7 @@ class Consumer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
         self.delay(now)
 
     def run(self):
-        self.channel.basic_consume(self.consumer_callback, queue=self.queueName, no_ack=False, exclusive=False, consumer_tag=None, arguments=None)
+        self.channel.basic_consume(self.consumer_callback, queue=self.queueName, no_ack=False, exclusive=False,
+                                   consumer_tag=None, arguments=None)
 
 
