@@ -60,6 +60,8 @@ class Stats(object):
         now = time.time()
         self.elapsedInterval = now - self.lastStatsTime
 
+        print("now: %f, lastStatsTime: %f, elapsedInterval: %f" % (now, self.lastStatsTime, self.elapsedInterval))
+
         if self.elapsedInterval >= self.interval:
             self.elapsedTotal += self.elapsedInterval
             self.reportnow(now)

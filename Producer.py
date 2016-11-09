@@ -9,9 +9,11 @@ import ProducerConsumerBase
 
 
 class Producer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
-    def __init__(self, channel, exchangeName, id, randomRoutingKey, flags, txSize, rateLimit, msgLimit, timeLimit, minMsgSize, stats):
+    def __init__(self, channel, exchangeName, exchangeType, id, randomRoutingKey, flags, txSize, rateLimit, msgLimit, timeLimit, minMsgSize, stats):
+        threading.Thread.__init__(self)
         self.channel          = channel
         self.exchangeName     = exchangeName
+        self.exchangeType     = exchangeType
         self.id               = id
         self.randomRoutingKey = randomRoutingKey
         self.mandatory        = "mandatory" in flags  #flags.contains("mandatory")
@@ -45,7 +47,7 @@ class Producer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
 
     def createMessage(self, sequenceNumber):
         now = time.time()
-        message = str(sequenceNumber) + ';' + str(now)
+        message = str(sequenceNumber) + ';' + "{:.6f}".format(now)
 
         msgSize = len(message)
 
@@ -59,8 +61,11 @@ class Producer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
         self.lastStatsTime = startTime
         self.msgCount = 0
         totalMsgCount = 0
-        while (self.timeLimit == 0 or now < startTime + self.timeLimit) and (
-                self.msgLimit == 0 or self.msgCount < self.msgLimit):
+
+        self.channel.exchange_declare(exchange=self.exchangeName, exchange_type=self.exchangeType)
+
+        while (self.timeLimit == 0 or now < startTime + self.timeLimit) and (self.msgLimit == 0 or self.msgCount < self.msgLimit):
+
             self.delay(now)
 
             self.publish(self.createMessage(totalMsgCount))
@@ -73,4 +78,9 @@ class Producer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
 
             self.stats.handleSend()
             now = time.time()
+
+
+
+        print("msgCount: %d, startTime: %f, timeLimit: %f, startTime + timeLimit: %f, now: %f" % (self.msgCount, startTime, self.timeLimit, startTime + self.timeLimit, now))
+        self.stats.handleSend()
 

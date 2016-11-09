@@ -2,6 +2,7 @@
 
 import argparse
 import urlparse
+# import inspect
 
 import pika
 import time
@@ -90,34 +91,44 @@ class TestDriver(object):
         # stats = PrintStats(interval, latencyLimitation, sendStatsEnabled, recvStatsEnabled, returnStatsEnabled, confirmStatsEnabled, startConsumer)
         stats = PrintStats(self.samplingInterval, self.latencyLimitation, self.producerCount > 0, self.consumerCount > 0, ("mandatory" in self.flags or "immediate" in self.flags), self.confirm != -1)
 
+        # Create Threads
 
-        for i in range(self.producerCount):
-            t = Producer()
-            producer_threads.append(t)
 
         for i in range(self.consumerCount):
-            t = Consumer()
+            t = Consumer(consumer_channel, self.routingKey, self.queueName, self.consumerRateLimit, self.consumerTxSize, self.autoAck, self.multiAckEvery, stats, self.consumerMsgCount, self.timeLimit)
             consumer_threads.append(t)
+
+        for i in range(self.producerCount):
+            t = Producer(producer_channel, self.exchangeName, self.exchangeType, self.routingKey, self.randomRoutingKey, self.flags, self.producerTxSize, self.producerRateLimit, self.producerMsgCount, self.timeLimit, self.minMsgSize, stats)
+            producer_threads.append(t)
+
+        # Start Threads
+        for i in range(self.consumerCount):
+            consumer_threads[i].start()
 
         for i in range(self.producerCount):
             producer_threads[i].start()
 
-        for i in range(self.consumerCount):
-            consumer_threads[i].start()
 
+
+        # Wait Threads finished
+        for i in range(self.consumerCount):
+            consumer_threads[i].join()
 
         for i in range(self.producerCount):
             producer_threads[i].join()
 
-        for i in range(self.consumerCount):
-            consumer_threads[i].join()
+
+        stats.printFinal()
 
 
-        producer = Producer(producer_channel, self.exchangeName, self.routingKey, self.randomRoutingKey, self.flags, self.producerTxSize, self.producerRateLimit, self.producerMsgCount, self.timeLimit, self.minMsgSize, stats)
-        consumer = Consumer(consumer_channel, self.routingKey, self.queueName, self.consumerRateLimit, self.consumerTxSize, self.autoAck, self.multiAckEvery, stats, self.consumerMsgCount, self.timeLimit)
 
-        producer.run()
-        consumer.run()
+
+        # producer = Producer(producer_channel, self.exchangeName, self.routingKey, self.randomRoutingKey, self.flags, self.producerTxSize, self.producerRateLimit, self.producerMsgCount, self.timeLimit, self.minMsgSize, stats)
+        # consumer = Consumer(consumer_channel, self.routingKey, self.queueName, self.consumerRateLimit, self.consumerTxSize, self.autoAck, self.multiAckEvery, stats, self.consumerMsgCount, self.timeLimit)
+        #
+        # producer.run()
+        # consumer.run()
 
 
 class PrintStats(Stats):
@@ -129,7 +140,9 @@ class PrintStats(Stats):
         self.confirmStatsEnabled = confirmStatsEnabled
 
     def reportnow(self, now):
-        print("time: %6.3fs" % (now - self.startTime)),
+        # print("time: % 6.3fs" % (now - self.startTime)),
+        # print inspect.stack()
+        print("time: {:8.3f}s,".format((now - self.startTime))),
         self.showRate("sent", self.sendCountInterval, self.sendStatsEnabled, self.elapsedInterval)
         self.showRate("returned", self.returnCountInterval, self.sendStatsEnabled and self.returnStatsEnabled, self.elapsedInterval)
         self.showRate("confirmed", self.confirmCountInterval, self.sendStatsEnabled and self.confirmStatsEnabled, self.elapsedInterval)
@@ -144,7 +157,7 @@ class PrintStats(Stats):
 
     def showRate(self, descr, count, display, elapsed):
         if display is True:
-            print(", " + descr + ": " + self.formatRate(count / elapsed) + " msg/s")
+            print("{}: {} msgs/s".format(descr, self.formatRate(count / elapsed)))
 
     def printFinal(self):
         now = time.time()
@@ -156,13 +169,13 @@ class PrintStats(Stats):
 
     def formatRate(self, rate):
         if rate == 0.0:
-            return "{:{width}}".format(rate, width=6)
+            return "{:{width}}".format(int(rate), width=6)
         elif rate < 1:
-            return "{:{width}}".format(rate, width=6)
+            return "{:{width}}".format(int(rate), width=6)
         elif rate < 10:
-            return "{:{width}}".format(rate, width=6)
+            return "{:{width}}".format(int(rate), width=6)
         else:
-            return "{:{width}}".format(rate, width=6)
+            return "{:{width}}".format(int(rate), width=6)
 
 def main():
     parser = argparse.ArgumentParser(prog="perftest", description="Start performance testing")

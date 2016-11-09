@@ -7,6 +7,7 @@ import ProducerConsumerBase
 
 class Consumer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
     def __init__(self, channel, id, queueName, rateLimit, txSize, autoAck, multiAckEvery, stats, msgLimit, timeLimit):
+        threading.Thread.__init__(self)
         self.channel = channel
         self.id = id
         self.queueName = queueName
