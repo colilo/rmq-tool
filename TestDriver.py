@@ -14,6 +14,7 @@ from Stats import Stats
 
 class TestDriver(object):
     def __init__(self, args):
+        self.autoDelete = False
         self.exchangeType = args.exchangeType
 
         if args.exchangeName is None:
@@ -51,7 +52,7 @@ class TestDriver(object):
         if self.curi == '' and self.puri == '':
             self.curi = 'amqp://localhost'
             self.puri = 'amqp://localhost'
-        elif self.curi =='' and self.puri != '':
+        elif self.curi == '' and self.puri != '':
             self.curi = self.puri
         elif self.curi != '' and self.puri == '':
             self.puri = self.curi
@@ -68,7 +69,7 @@ class TestDriver(object):
             port = 5672
         return hostname, port
 
-    def createProducer(self, connect, stats):
+    def createProducer(self, connect, stats, routingKey):
         channel = connect.channel()
         if self.producerTxSize > 0:
             channel.tx_select()
@@ -76,25 +77,33 @@ class TestDriver(object):
             channel.confirm_delivery()
         channel.exchange_declare(self.exchangeName, self.exchangeType)
 
-        return Producer(channel, self.exchangeName, self.exchangeType, self.routingKey, self.randomRoutingKey,
+        return Producer(channel, self.exchangeName, self.exchangeType, routingKey, self.randomRoutingKey,
                         self.flags, self.producerTxSize, self.producerRateLimit, self.producerMsgCount, self.timeLimit,
                         self.minMsgSize, stats)
 
-    def createConsumer(self, connect, stats, routingKey, autoDelete):
+    def createConsumer(self, connect, stats, routingKey):
         channel = connect.channel()
         if self.consumerTxSize > 0:
             channel.tx_select()
+        self.configureQueue(connect, routingKey)
+
+        return Consumer(channel, routingKey, self.queueName, self.consumerRateLimit, self.consumerTxSize,
+                        self.autoAck, self.multiAckEvery, stats, self.consumerMsgCount, self.timeLimit)
+
+    def shouldConfigureQueue(self):
+        return self.consumerCount == 0 and self.queueName != ''
+
+    def configureQueue(self, conn, routingKey):
+        channel = conn.channel()
         channel.exchange_declare(self.exchangeName, self.exchangeType)
-        result = channel.queue_declare(queue=self.queueName, durable="persistent" in self.flags, auto_delete=autoDelete)
+        result = channel.queue_declare(queue=self.queueName, durable="persistent" in self.flags,
+                                       auto_delete=self.autoDelete, exclusive=False)
         self.queueName = result.method.queue
 
         channel.queue_bind(self.queueName, self.exchangeName, routingKey)
 
         channel.basic_qos(self.consumerPrefetch)
         channel.basic_qos(self.channelPrefetch, True)
-
-        return Consumer(channel, routingKey, self.queueName, self.consumerRateLimit, self.consumerTxSize,
-                        self.autoAck, self.multiAckEvery, stats, self.consumerMsgCount, self.timeLimit)
 
     def run(self, announceStartup):
 
@@ -127,30 +136,35 @@ class TestDriver(object):
 
                 conn = pika.BlockingConnection(parameters=consumer_parameters)
                 consumerConnectionList.append(conn)
-                consumer_threads.append(self.createConsumer(conn, stats, self.routingKey, autoDelete=True))
+                consumer_threads.append(self.createConsumer(conn, stats, self.routingKey))
+
+            # if self.shouldConfigureQueue():
+            #     conn = pika.BlockingConnection(parameters=consumer_parameters)
+            #     self.configureQueue(conn, self.routingKey)
+            #     conn.close()
 
             for i in range(self.producerCount):
                 if announceStartup:
                     print("starting producer *" + str(i))
                 conn = pika.BlockingConnection(parameters=producer_parameters)
                 producerConnectionList.append(conn)
-                producer_threads.append(self.createProducer(conn, stats))
+                producer_threads.append(self.createProducer(conn, stats, self.routingKey))
         elif self.exchangeType == 'topic':
             # topic
             for i in range(self.consumerCount):
                 if announceStartup:
-                    print("starting consumer *" + str(i))
+                    print("starting consumer #" + str(i))
 
                 conn = pika.BlockingConnection(parameters=consumer_parameters)
                 consumerConnectionList.append(conn)
-                consumer_threads.append(self.createConsumer(conn, stats, self.routingPattern, autoDelete=True))
+                consumer_threads.append(self.createConsumer(conn, stats, self.routingPattern))
 
             for i in range(self.producerCount):
                 if announceStartup:
-                    print("starting producer *" + str(i))
+                    print("starting producer #" + str(i))
                 conn = pika.BlockingConnection(parameters=producer_parameters)
                 producerConnectionList.append(conn)
-                producer_threads.append(self.createProducer(conn, stats))
+                producer_threads.append(self.createProducer(conn, stats, self.routingKey))
 
         elif self.exchangeType == 'fanout':
             # fanout
@@ -160,14 +174,14 @@ class TestDriver(object):
 
                 conn = pika.BlockingConnection(parameters=consumer_parameters)
                 consumerConnectionList.append(conn)
-                consumer_threads.append(self.createConsumer(conn, stats, self.routingKey, autoDelete=True))
+                consumer_threads.append(self.createConsumer(conn, stats, self.routingKey))
 
             for i in range(self.producerCount):
                 if announceStartup:
                     print("starting producer *" + str(i))
                 conn = pika.BlockingConnection(parameters=producer_parameters)
                 producerConnectionList.append(conn)
-                producer_threads.append(self.createProducer(conn, stats))
+                producer_threads.append(self.createProducer(conn, stats, self.routingKey))
         elif self.exchangeType == 'headers':
             # headers
             for i in range(self.consumerCount):
@@ -176,14 +190,14 @@ class TestDriver(object):
 
                 conn = pika.BlockingConnection(parameters=consumer_parameters)
                 consumerConnectionList.append(conn)
-                consumer_threads.append(self.createConsumer(conn, stats, self.routingKey, autoDelete=True))
+                consumer_threads.append(self.createConsumer(conn, stats, self.routingKey))
 
             for i in range(self.producerCount):
                 if announceStartup:
                     print("starting producer *" + str(i))
                 conn = pika.BlockingConnection(parameters=producer_parameters)
                 producerConnectionList.append(conn)
-                producer_threads.append(self.createProducer(conn, stats))
+                producer_threads.append(self.createProducer(conn, stats, self.routingKey))
                 producer_threads.append(Producer(conn, self.exchangeName, self.exchangeType, self.routingKey,
                                                  self.randomRoutingKey,
                                                  self.flags, self.producerTxSize, self.producerRateLimit,
@@ -192,6 +206,7 @@ class TestDriver(object):
         # Start Threads
         for i in range(len(consumer_threads)):
             consumer_threads[i].start()
+            consumerConnectionList[i].add_timeout(self.timeLimit, consumer_threads[i].kill)
 
         for i in range(len(producer_threads)):
             producer_threads[i].start()
@@ -209,7 +224,8 @@ class TestDriver(object):
 
 
 class PrintStats(Stats):
-    def __init__(self, interval, latencyLimitation, sendStatsEnabled, recvStatsEnabled, returnStatsEnabled, confirmStatsEnabled):
+    def __init__(self, interval, latencyLimitation, sendStatsEnabled, recvStatsEnabled, returnStatsEnabled,
+                 confirmStatsEnabled):
         super(self.__class__, self).__init__(interval, latencyLimitation)
         self.sendStatsEnabled = sendStatsEnabled
         self.recvStatsEnabled = recvStatsEnabled
@@ -221,19 +237,27 @@ class PrintStats(Stats):
         # print inspect.stack()
         print("time: {:8.3f}s,".format((now - self.startTime))),
         self.showRate("sent", self.sendCountInterval, self.sendStatsEnabled, self.elapsedInterval)
-        self.showRate("returned", self.returnCountInterval, self.sendStatsEnabled and self.returnStatsEnabled, self.elapsedInterval)
-        self.showRate("confirmed", self.confirmCountInterval, self.sendStatsEnabled and self.confirmStatsEnabled, self.elapsedInterval)
-        self.showRate("nacked", self.nackCountInterval, self.sendStatsEnabled and self.confirmStatsEnabled, self.elapsedInterval)
+        self.showRate("returned", self.returnCountInterval, self.sendStatsEnabled and self.returnStatsEnabled,
+                      self.elapsedInterval)
+        self.showRate("confirmed", self.confirmCountInterval, self.sendStatsEnabled and self.confirmStatsEnabled,
+                      self.elapsedInterval)
+        self.showRate("nacked", self.nackCountInterval, self.sendStatsEnabled and self.confirmStatsEnabled,
+                      self.elapsedInterval)
         self.showRate("received", self.recvCountInterval, self.recvStatsEnabled, self.elapsedInterval)
 
         if self.latencyCountInterval > 0:
-            print(", min/avg/max latency: %f/%f/%fms" % (self.minLatency, self.cumulativeLatencyInterval / self.latencyCountInterval, self.maxLatency))
+            print(", min/avg/max latency: %f/%f/%fms" % (
+            self.minLatency, self.cumulativeLatencyInterval / self.latencyCountInterval, self.maxLatency))
 
         if self.recvStatsEnabled:
-            print("latency lower than %fms is %dmsgs, %dmsgs; percent %f%%, average percent %f%%" % (self.latencyLimitation, self.acceptableLatencyCountInterval, self.recvCountInterval, self.acceptableLatencyCountInterval * 100 / self.recvCountInterval, self.acceptableLatencyCountTotal * 100 / self.recvCountTotal))
+            print("latency lower than %fms is %dmsgs, %dmsgs; percent %f%%, average percent %f%%" % (
+            self.latencyLimitation, self.acceptableLatencyCountInterval, self.recvCountInterval,
+            self.acceptableLatencyCountInterval * 100 / self.recvCountInterval,
+            self.acceptableLatencyCountTotal * 100 / self.recvCountTotal))
 
     def showRate(self, descr, count, display, elapsed):
         if display is True:
+            print("msg: %d, interval: %d" % (count, elapsed)),
             print("{}: {} msgs/s".format(descr, self.formatRate(count / elapsed)))
 
     def printFinal(self):
@@ -253,6 +277,7 @@ class PrintStats(Stats):
             return "{:{width}}".format(int(rate), width=6)
         else:
             return "{:{width}}".format(int(rate), width=6)
+
 
 def main():
     parser = argparse.ArgumentParser(prog="perftest", description="Start performance testing")
@@ -300,7 +325,6 @@ def main():
 
     driver.run(True)
 
+
 if __name__ == "__main__":
     main()
-
-

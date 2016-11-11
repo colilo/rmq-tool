@@ -60,7 +60,7 @@ class Stats(object):
 
     def report(self):
         now = time.time()
-        self.elapsedInterval = now - self.lastStatsTime
+        self.elapsedInterval = int(round(now - self.lastStatsTime, 3))
 
         # print("now: %f, lastStatsTime: %f, elapsedInterval: %f" % (now, self.lastStatsTime, self.elapsedInterval))
 

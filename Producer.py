@@ -62,8 +62,6 @@ class Producer(ProducerConsumerBase.ProducerConsumerBase, threading.Thread):
         self.msgCount = 0
         totalMsgCount = 0
 
-        self.channel.exchange_declare(exchange=self.exchangeName, exchange_type=self.exchangeType)
-
         while (self.timeLimit == 0 or now < startTime + self.timeLimit) and (self.msgLimit == 0 or self.msgCount < self.msgLimit):
 
             self.delay(now)

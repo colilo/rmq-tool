@@ -14,7 +14,7 @@ class ProducerConsumerBase(object):
 
         pause = 0.0
 
-        if (self.rateLimit == 0.0):
+        if self.rateLimit == 0:
             pause = 0.0
         else:
             pause = self.msgCount / self.rateLimit - elapsed
