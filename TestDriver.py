@@ -138,10 +138,10 @@ class TestDriver(object):
                 consumerConnectionList.append(conn)
                 consumer_threads.append(self.createConsumer(conn, stats, self.routingKey))
 
-            # if self.shouldConfigureQueue():
-            #     conn = pika.BlockingConnection(parameters=consumer_parameters)
-            #     self.configureQueue(conn, self.routingKey)
-            #     conn.close()
+            if self.shouldConfigureQueue():
+                conn = pika.BlockingConnection(parameters=consumer_parameters)
+                self.configureQueue(conn, self.routingKey)
+                conn.close()
 
             for i in range(self.producerCount):
                 if announceStartup:
@@ -159,14 +159,19 @@ class TestDriver(object):
                 consumerConnectionList.append(conn)
                 consumer_threads.append(self.createConsumer(conn, stats, self.routingPattern))
 
+            if self.shouldConfigureQueue():
+                conn = pika.BlockingConnection(parameters=consumer_parameters)
+                self.configureQueue(conn, self.routingPattern)
+                conn.close()
+
             for i in range(self.producerCount):
                 if announceStartup:
                     print("starting producer #" + str(i))
                 conn = pika.BlockingConnection(parameters=producer_parameters)
                 producerConnectionList.append(conn)
-                producer_threads.append(self.createProducer(conn, stats, self.routingKey))
+                producer_threads.append(self.createProducer(conn, stats, self.routingKey + "." + str(i)))
 
-        elif self.exchangeType == 'fanout':
+        elif self.exchangeType == 'fanout':  # uncompleted 
             # fanout
             for i in range(self.consumerCount):
                 if announceStartup:
@@ -176,13 +181,18 @@ class TestDriver(object):
                 consumerConnectionList.append(conn)
                 consumer_threads.append(self.createConsumer(conn, stats, self.routingKey))
 
+            if self.shouldConfigureQueue():
+                conn = pika.BlockingConnection(parameters=consumer_parameters)
+                self.configureQueue(conn, self.routingPattern)
+                conn.close()
+
             for i in range(self.producerCount):
                 if announceStartup:
                     print("starting producer *" + str(i))
                 conn = pika.BlockingConnection(parameters=producer_parameters)
                 producerConnectionList.append(conn)
                 producer_threads.append(self.createProducer(conn, stats, self.routingKey))
-        elif self.exchangeType == 'headers':
+        elif self.exchangeType == 'headers':  # uncompleted
             # headers
             for i in range(self.consumerCount):
                 if announceStartup:
